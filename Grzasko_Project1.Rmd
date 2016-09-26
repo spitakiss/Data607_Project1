@@ -1,0 +1,219 @@
+---
+title: 'Project 1: Chess Data'
+author: "Aaron Grzasko"
+date: "September 25, 2016"
+output: 
+    html_document:
+        theme: cerulean
+        highlight: pygments
+---
+
+---
+## Assignment Overview  
+In this assignment, we continue our work with semi-structured text data.  The goal of the exercise is to manipulate the provided *tournament.txt* document--a file containing chess tournament data--so that the following information is organized in a cleaner, *.csv* format:  
+  
+* player name
+* player state
+* total number of points scored in the chess tournament  
+* player pre-tournament rating  
+* average pre-chess rating of each player's opponents  
+  
+##  References  
+The raw text file used in this assignment was originally retrieved from the course [Blackboard website](https://bbhosted.cuny.edu/bbcswebdav/pid-25842547-dt-content-rid-119781398_1/courses/SPS01_DATA_607_01_1169_1/SPS01_DATA_607_01_1169_1_ImportedContent_20160815114002/SPS01_DATA_607_01_1162_1_ImportedContent_20160126062155/tournamentinfo.txt).
+  
+The data is also available at my [Github Repo](https://raw.githubusercontent.com/spitakiss/Data607_Project1/master/tournamentinfo.txt)  
+
+Additional assignment details are located [here](https://bbhosted.cuny.edu/bbcswebdav/pid-25842547-dt-content-rid-119781399_1/xid-119781399_1).
+
+## Load Libraries  
+  
+The only package used in this exercise is the stringr package.
+
+```{r load_lib}
+library(stringr)
+```
+  
+  
+## Data Retrieval  
+
+Retrieve the raw data directly from the specified Github repository:    
+```{r data_retrieval, warning=FALSE}
+myurl <- "https://raw.githubusercontent.com/spitakiss/Data607_Project1/master/tournamentinfo.txt"
+raw_data <- readLines(myurl)
+```
+
+If the above code fails, we can manually save the .txt file to the working directory and run the following code:  
+```{r alt_data_retrieval}
+# uncomment code below if previous script fails
+# raw_data <- readLines("tournamentinfo.txt")
+```
+
+## View Raw Data  
+
+Using the short scripts below, we see that the raw data file contains 196 total lines.  
+The data necessary for this assignment start on line 5 of the raw file.
+
+Some variables of interest (e.g. player name, player total points ) begin on line 5, and repeat every three lines.  
+Other variables (e.g. player state, pre-tournament points) begin on line 6, and again repeat on every third row.  
+  
+```{r raw_view, comment=NA}
+head(raw_data,15)
+length(raw_data)
+``` 
+  
+## Data Manipulation  
+  
+The code chunk below stores the majority of the required variables into separate vectors, including:    
+  
+* player name
+* total points scored
+* player state
+* player pre-rating  
+  
+The following code also creates multiple intermediate variables that will be useful for calculating the average, pre-rating of each player's opponents.  These variables include:  
+  
+* player number
+* number of games played
+* opponent list, which stores a vector of opponents separately for each player  
+  
+**Initial Variable Creation/Manipulation**  
+```{r bulk_work}
+
+# initialize variables in located in  lines 5, 8, 11, etc. of the raw file 
+
+play_num <- vector()    # player number.  Intermediate varaible used to calculate opponent pre-scores
+name <- vector()        # player name
+ttl_pts <- vector()     # total points scored by player
+game_num <- vector()    # number of games played (including wins, losses, and draws only).  
+                        # this is an intermediate variable used for calculating average opponent pre-scores                             
+opp_list <- list()      # opponent list, used to determine average opponent pre-scores
+
+# initialize variables in lines 6,9, 12, etc. of raw file
+
+state <- vector()       # player state of residence
+pre_rating <- vector()  # player pre-tournament point ranking
+
+for (i in 5:length(raw_data))
+{
+    if ((i - 2) %% 3 == 0)
+    {
+        # populate player number vector
+        temp_play_num <- unlist(str_split(raw_data[i],"\\|"))[1]
+        temp_play_num <- str_extract(temp_play_num,"[[0-9]]+")
+        play_num <- c(play_num, temp_play_num)  
+          
+        # populate player name vector
+        temp_name <- unlist(str_split(raw_data[i],"\\|"))
+        name <- c(name, str_trim(temp_name[2]))  
+        
+        # populate ttl pts scored vector
+        temp_ttl_pts <- unlist(str_split(raw_data[i],"\\|"))
+        ttl_pts <- c(ttl_pts, as.numeric(temp_ttl_pts[3]))
+        
+        # populate opponent vector for each player, append to master, opponent list
+        opp_vect <- vector()
+        
+        # individual player game counter.  Initialized value is zero  
+        ivl_ct <- 0
+        
+        for (j in 4:10) # loop through seven rounds of potential opponents
+        {
+            # create opponent vector, loop through rounds 
+            temp_opp <- unlist(str_split(raw_data[i],"\\|"))[j]
+            opp_vect <- c(opp_vect, str_extract(temp_opp,"[[0-9]]+"))
+            
+            # calc final number of games, loop through rounds
+            temp_game_num <- str_split(raw_data[i],"\\|")[[1]][j]
+            ivl_ct <- str_detect(temp_game_num,"[WLD]") + ivl_ct
+        }
+        
+        # final opponent list
+        opp_list[[length(opp_list) + 1]] <- opp_vect
+        
+        # final game tally per player
+        game_num <- c(game_num, ivl_ct)
+    }
+    else if (i %% 3 == 0)
+    {
+        # populate player state
+        temp_state <- unlist(str_split(raw_data[i],"\\|"))
+        state <- c(state, str_trim(temp_state[1]))   
+        
+        # populate player pre rating
+        temp_pre_rating <- unlist(str_split(raw_data[i],"\\|"))[2]
+        temp_pre_rating <- str_extract(temp_pre_rating,"R: [ [0-9]]+")  
+        temp_pre_rating <- str_extract(temp_pre_rating,"[[0-9]]+")
+        pre_rating <- c(pre_rating, str_trim(temp_pre_rating))
+    }
+}
+
+```
+<br>
+**Data Checks**  
+
+Let's do a brief visual check to confirm the data has been manipulated correctly.  
+```{r}
+head(play_num)
+head(name)
+head(state)
+head(ttl_pts)
+head(pre_rating)
+head(opp_list,3)
+head(game_num)
+```
+<br>  
+
+Let's also confirm that there are 64 elements for each variable.  
+```{r}
+length(play_num)
+length(name)
+length(state)
+length(ttl_pts)
+length(pre_rating)
+length(opp_list)
+length(game_num)
+
+```
+
+
+**Create Data Frame**  
+Next, we'll combine vectors into a data frame and create a variable to calculate each player's average opponent pre-score: 
+<br>  
+```{r create_df}
+# create data frame
+chess.df <- data.frame(play_num, name, state, ttl_pts = as.numeric(ttl_pts), pre_rating = as.numeric(pre_rating),
+                       game_num = as.integer(game_num))
+
+# for each player, sum up all opponenet pre-ratings, and store in vector, sum_opp_pre
+sum_opp_pre <- vector()
+for (i in 1:length(opp_list))
+{
+    temp_sum_rating <- sum(chess.df[which(chess.df$play_num %in% opp_list[[i]]),]$pre_rating)
+    sum_opp_pre <- c(sum_opp_pre,temp_sum_rating)
+}
+
+# add new column to data frame, sum of opponent scores
+chess.df$opp_sum_pre <- sum_opp_pre
+
+# add another data frame column that calculates average opponent pre-score 
+chess.df$avg_opp_pre <- round(chess.df$opp_sum_pre / chess.df$game_num,0)
+
+
+```
+
+**Write to CSV**  
+Finally, we'll write a subset of the original data frame--containing only key variables--to csv format.  
+  
+```{r make_csv, comment=NA}
+
+# subset the data frame to include only columns we need for exporting
+chess.df.redux <- subset(chess.df, select = c(name,state,ttl_pts,pre_rating,avg_opp_pre))
+
+# write to csv format
+write.csv(chess.df.redux, row.names = FALSE)
+
+# uncomment below to write file to working directory. 
+# write.csv(chess.df.redux, file = "chess_data.csv", row.names=FALSE)
+```
+
+
